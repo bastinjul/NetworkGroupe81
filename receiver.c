@@ -9,7 +9,7 @@
 
 const char* host;
 int port, sfd;
-FILE* inputfile;
+FILE* outputfile;
 
 int main(int argc, const char* argv[]){
 
@@ -23,8 +23,8 @@ int main(int argc, const char* argv[]){
     port = atoi(argv[4]);
     host = argv[3];
 
-    inputfile = fopen(argv[2], O_WRONLY | O_CREATE | O_TRUNC);
-    if(inputfile == NULL){
+    outputfile = fopen(argv[2], O_WRONLY | O_CREATE | O_TRUNC);
+    if(outputfile == NULL){
       perror("Opening File");
       exit(EXIT_FAILURE);
     }
@@ -43,4 +43,16 @@ int main(int argc, const char* argv[]){
   }
 
   sfd = create_socket(&addr, port, NULL, -1);
+
+  if(sfd < 0){
+    perror("Create socket");
+    close(sfd);
+  }
+
+  if(wait_for_client(sfd) < 0){
+    perror("Wait for client");
+    close(sfd);
+  }
+
+  
 }

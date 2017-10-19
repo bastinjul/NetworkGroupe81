@@ -43,4 +43,8 @@ int main(int argc, const char* argv[]){
   }
 
   sfd = create_socket(NULL, -1, &addr, port);
+  if(sfd < 0){
+    perror("Create socket");
+    close(sfd);
+  }
 }
