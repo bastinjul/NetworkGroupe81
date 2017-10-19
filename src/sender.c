@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "real_address.h"
 #include "create_socket.h"
@@ -23,7 +24,7 @@ int main(int argc, const char* argv[]){
     port = atoi(argv[4]);
     host = argv[3];
 
-    inputfile = fopen(argv[2], O_RDONLY);
+    inputfile = fopen(argv[2], "r");
     if(inputfile == NULL){
       perror("Opening File");
       exit(EXIT_FAILURE);

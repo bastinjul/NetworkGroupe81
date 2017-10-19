@@ -78,7 +78,7 @@ void pkt_del(pkt_t *pkt)
 pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
 {
 	if(len < sizeof(pkt->header)){
-		return E_NOHEADER;
+		//return E_NOHEADER;
 	}
 
 	int ptr = 0;
@@ -135,37 +135,26 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
  */
 pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 {
-	uint16_t payload_len = pkt_get_length(pkt);
- 	size_t pktsize = sizeof(pkt_t) + payload_len;
+	uint16_t plen = pkt_get_length(pkt);
 
-	if(*len < pktsize){
-		return E_NOMEM;
-	}
-	/* HEADER */
-
-	//copy type, tr, window and seqnum
-	memcpy(buf, pkt, 2*sizeof(uint8_t));
-	*len = 2*sizeof(uint8_t);
-
-	//copy length
-	uint16_t length = htons(pkt_get_length(pkt));
-	memcpy(buf +*len, &length, sizeof(uint16_t));
-	*len += sizeof(uint16_t);
-
-	//copy timestamp
-	memcpy(buf + *len, &pkt->header.timestamp, sizeof(uint32_t));
-	*len += sizeof(uint32_t);
+  if (*len < sizeof(pkt_t) + plen) {
+      return E_NOMEM;
+  }
+	/* HEADER */;
+	*len = sizeof(pkt->header) - sizeof(uint32_t);
+	//pkt_set_length((pkt_t*)pkt, plen);
+	memcpy(buf, pkt, *len);
 
 	//copy crc1
 	uint32_t crc1 = calc_crc1(pkt);
 	pkt_set_crc1((pkt_t*) pkt, crc1);
-	memcpy(buf + *len, &crc1, sizeof(uint32_t));
-	*len += sizeof(uint32_t);
+	memcpy(buf + *len, &crc1, sizeof(crc1));
+	*len += sizeof(pkt->header.crc1);
 
 	/* PAYLOAD */
-	if(pkt_get_length(pkt) > 0){
-		memcpy(buf + *len, pkt->payload, payload_len);
-		*len += payload_len;
+	if ((pkt_get_tr(pkt)) || (plen > 0)) {
+		memcpy(buf + *len, pkt->payload, plen);
+		*len += plen;
 
 		uint32_t crc2 = calc_crc2(pkt);
 		pkt_set_crc2((pkt_t *) pkt, crc2);
@@ -197,7 +186,7 @@ uint8_t  pkt_get_seqnum(const pkt_t* pkt)
 
 uint16_t pkt_get_length(const pkt_t* pkt)
 {
-	return pkt->header.length;
+	return ntohs(pkt->header.length);
 }
 
 uint32_t pkt_get_timestamp   (const pkt_t* pkt)
