@@ -13,6 +13,8 @@
 #include <unistd.h> /* getopt */
 
 #include "wait_for_client.h"
+
+#define MAX_BUFFER_SIZE 1024
 /* Block the caller until a message is received on sfd,
  * and connect the socket to the source addresse of the received message
  * @sfd: a file descriptor to a bound socket but not yet connected
@@ -21,23 +23,21 @@
  * and could be repeated several times blocking only at the first call.
  */
 int wait_for_client(int sfd){
-  char buf[1024];
-  socklen_t socklen;
-  struct sockaddr_storage addr;
+  char buffer[MAX_BUFFER_SIZE];
+  socklen_t addrlen;
+  struct sockaddr_in6 src_addr;
 
-  memset(&addr, 0, sizeof(addr));
-  socklen = sizeof(addr);
-  ssize_t bytes_received = recvfrom(sfd, buf, sizeof(buf), MSG_PEEK,
-      (struct sockaddr *)&addr, &socklen);
+  memset(&src_addr, 0, sizeof(src_addr));
+  addrlen = sizeof(src_addr);
+  ssize_t bytes_received = recvfrom(sfd, buffer, sizeof(buffer), MSG_PEEK, (struct sockaddr *)&src_addr, &addrlen);
   if (bytes_received == -1) {
-      fprintf(stderr, "Impossible de lire un message venant du client\n");
+      fprintf(stderr, "Error : recvfrom()\n");
       return -1;
-  } else {
-      int c = connect(sfd, (struct sockaddr *)&addr, socklen);
-      if (c == -1) {
-          fprintf(stderr, "Impossible de se connecter\n");
-          return -1;
-      }
+  }
+
+  if (connect(sfd, (struct sockaddr *)&src_addr, addrlen) == -1) {
+      fprintf(stderr, "Error : connect()\n");
+      return -1;
   }
 
   return 0;

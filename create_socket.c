@@ -32,32 +32,24 @@ int create_socket(struct sockaddr_in6 *source_addr, int src_port, struct sockadd
 	}
 
 	struct sockaddr_in6 address;
-	int port;
 	if(source_addr != NULL){
 		memcpy(&address, source_addr, sizeof(address));
-		port = src_port;
-	} else if(dest_addr != NULL){
-		memcpy(&address, dest_addr, sizeof(address));
-		port = dst_port;
-	}
-	else{
-		fprintf(stderr, "source_addr == NULL && dest_addr == NULL\n");
-		return -1;
-	}
-
-	address.sin6_port = htons(port);
-
-	if(source_addr != NULL){
+		address.sin6_port = htons(src_port);
 		err = bind(sfd, (struct sockaddr*)&address, sizeof(address));
 		if(err == -1){
 			return -1;
 		}
-	}
-	else{
+	} else if(dest_addr != NULL){
+		memcpy(&address, dest_addr, sizeof(address));
+		address.sin6_port = htons(dst_port);
 		err = connect(sfd, (struct sockaddr*)&address, sizeof(address));
 		if(err == -1){
 			return -1;
 		}
+	}
+	else{
+		fprintf(stderr, "source_addr == NULL && dest_addr == NULL\n");
+		return -1;
 	}
 
 	return sfd;
