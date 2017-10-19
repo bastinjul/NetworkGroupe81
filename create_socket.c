@@ -27,7 +27,7 @@ int create_socket(struct sockaddr_in6 *source_addr, int src_port, struct sockadd
 
 	sfd = socket(AF_INET6, SOCK_DGRAM, 0);
 	if(sfd == -1){
-		fprintf(stderr, "Error: errno=%d %s\n", errno, strerror(errno));
+		perror("Socket");
 		return -1;
 	}
 
@@ -48,7 +48,7 @@ int create_socket(struct sockaddr_in6 *source_addr, int src_port, struct sockadd
 		}
 	}
 	else{
-		fprintf(stderr, "source_addr == NULL && dest_addr == NULL\n");
+		perror("source_addr == NULL && dest_addr == NULL");
 		return -1;
 	}
 

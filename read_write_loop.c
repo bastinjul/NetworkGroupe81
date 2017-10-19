@@ -34,21 +34,21 @@ void read_write_loop(int sfd){
      r = poll(fds, 2, 1);
 
      if(r == -1)
-         fprintf(stderr, "Erreur poll %s\n", strerror(errno));
+         perror("Poll");
      if(r > 0) {
          if(fds[0].revents & POLLIN) {
              int nbr = read(sfd, buf, sizeof(buf));
              if(nbr == -1) {
-                 fprintf(stderr, "Erreur read socket %s\n", strerror(errno));
+                 perror("Read Socket");
              }else {
                  int nbw = write(STDOUT_FILENO, buf, nbr);
                  if(nbw == -1) {
-                         fprintf(stderr, "Erreur ecriture stdfilo %s\n", strerror(errno));
+                         perror("Write");
                          return;
                      }
 
                  if(nbw != nbr) {
-                     fprintf(stderr, "Erreur nombre de bytes socket\n");
+                     perror("Number of bytes in socket");
                      return;
                  }
              }
@@ -57,16 +57,16 @@ void read_write_loop(int sfd){
          else if(fds[1].revents & POLLIN) {
              int nbr = read(STDIN_FILENO, buf, sizeof(buf));
              if(nbr == -1) {
-                 fprintf(stderr, "Erreur lecture\n");
+                 perror("Read");
              } else {
                      int nbw = write(sfd, buf, nbr);
                      if(nbw == -1) {
-                         fprintf(stderr, "Erreur ecriture socket\n");
+                         perror("Write socket");
                          return;
                      }
 
                  if(nbw != nbr) {
-                         fprintf(stderr, "Erreur nombre de bytes %d %d\n", nbw, nbr);
+                         perror("Number of bytes in socket");
                          return;
                      }
 

@@ -31,12 +31,12 @@ int wait_for_client(int sfd){
   addrlen = sizeof(src_addr);
   ssize_t bytes_received = recvfrom(sfd, buffer, sizeof(buffer), MSG_PEEK, (struct sockaddr *)&src_addr, &addrlen);
   if (bytes_received == -1) {
-      fprintf(stderr, "Error : recvfrom()\n");
+      perror("recvfrom");
       return -1;
   }
 
   if (connect(sfd, (struct sockaddr *)&src_addr, addrlen) == -1) {
-      fprintf(stderr, "Error : connect()\n");
+      perror("connect");
       return -1;
   }
 
