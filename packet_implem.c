@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <zlib.h>
+#include <arpa/inet.h>
 
 
 struct __attribute__((__packed__)) pkt {
@@ -21,7 +22,7 @@ struct __attribute__((__packed__)) pkt {
 };
 
 //compute crc for the header
-uint32_t calc_crc1(pkt_t pkt){
+uint32_t calc_crc1(const pkt_t* pkt){
 	uLong crc = crc32(0L, Z_NULL, 0);
 	crc = crc32(crc, (const Bytef*) pkt, sizeof(pkt->header) - sizeof(uint32_t));
 	pkt_set_tr((pkt_t*) pkt, 0);
@@ -29,7 +30,7 @@ uint32_t calc_crc1(pkt_t pkt){
 }
 
 //compute crc for the payload
-uint32_t calc_crc2(pkt_t pkt){
+uint32_t calc_crc2(const pkt_t* pkt){
 	uLong crc = crc32(0L, Z_NULL, 0);
 	crc = crc32(crc, (const Bytef*) pkt->payload, pkt_get_length(pkt));
 	return htonl((uint32_t)crc);
@@ -76,7 +77,48 @@ void pkt_del(pkt_t *pkt)
  */
 pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
 {
+	if(len < sizeof(pkt->header)){
+		return E_NOHEADER;
+	}
 
+	int ptr = 0;
+
+	/* HEADER */
+
+	memcpy(pkt, data, sizeof(pkt->header));
+	ptr += sizeof(pkt->header);
+
+	pkt_set_length(pkt, ntohs(pkt_get_length(pkt)));
+
+	ptypes_t type = pkt_get_type(pkt);
+	if((type != PTYPE_DATA) && (type != PTYPE_ACK) && (type != PTYPE_NACK)){
+		return E_TYPE;
+	}
+
+	if(pkt_get_window(pkt) > MAX_WINDOW_SIZE){
+		return E_WINDOW;
+	}
+
+	if(pkt_get_length(pkt) > MAX_PAYLOAD_SIZE){
+		return E_LENGTH;
+	}
+
+	if(calc_crc1(pkt) != pkt_get_crc1(pkt)){
+		return E_CRC;
+	}
+
+	/* PAYLOAD */
+	if(pkt_get_tr(pkt) == 0 && pkt_get_length(pkt) > 0){
+		pkt_set_payload(pkt, data + ptr, pkt_get_length(pkt));
+		ptr += pkt_get_length(pkt);
+
+		memcpy(&pkt->crc2, data + ptr, sizeof(uint32_t));
+
+		if(calc_crc2(pkt) != pkt_get_crc2(pkt)){
+			return E_CRC;
+		}
+	}
+	return PKT_OK;
 }
 
 /*
@@ -94,10 +136,7 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
 pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 {
 	uint16_t payload_len = pkt_get_length(pkt);
- 	size_t pktsize = sizeof(pkt->header) + payload_len;
-	if(payload_len > 0){
-		pktsize += sizeof(uint32_t);
-	}
+ 	size_t pktsize = sizeof(pkt_t) + payload_len;
 
 	if(*len < pktsize){
 		return E_NOMEM;
@@ -214,6 +253,7 @@ pkt_status_code pkt_set_seqnum(pkt_t *pkt, const uint8_t seqnum)
 {
 	if (pkt == NULL) return E_UNCONSISTENT;
 	pkt->header.seqnum = seqnum;
+	return PKT_OK;
 }
 
 pkt_status_code pkt_set_length(pkt_t *pkt, const uint16_t length)
