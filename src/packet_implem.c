@@ -9,9 +9,9 @@
 
 struct __attribute__((__packed__)) pkt {
 	struct {
-		ptypes_t type : 2;
-		uint8_t tr : 1;
 		uint8_t window : 5;
+		uint8_t tr : 1;
+		uint8_t type : 2;
 		uint8_t seqnum;
 		uint16_t length;
 		uint32_t timestamp;
@@ -23,10 +23,12 @@ struct __attribute__((__packed__)) pkt {
 
 //compute crc for the header
 uint32_t calc_crc1(const pkt_t* pkt){
-	uLong crc = crc32(0L, Z_NULL, 0);
-	crc = crc32(crc, (const Bytef*) pkt, sizeof(pkt->header) - sizeof(uint32_t));
-	pkt_set_tr((pkt_t*) pkt, 0);
-	return htonl((uint32_t)crc);
+		uLong crc = crc32(0L, Z_NULL, 0);
+    uint8_t tr = pkt_get_tr(pkt);
+    pkt_set_tr((pkt_t*) pkt, 0);
+    crc = crc32(crc, (const Bytef *)pkt, sizeof(pkt->header) - sizeof(uint32_t));
+    pkt_set_tr((pkt_t*) pkt, tr);
+    return htonl((uint32_t)crc);
 }
 
 //compute crc for the payload
@@ -78,7 +80,7 @@ void pkt_del(pkt_t *pkt)
 pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
 {
 	if(len < sizeof(pkt->header)){
-		//return E_NOHEADER;
+		return E_NOHEADER;
 	}
 
 	int ptr = 0;
@@ -88,7 +90,9 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
 	memcpy(pkt, data, sizeof(pkt->header));
 	ptr += sizeof(pkt->header);
 
-	pkt_set_length(pkt, ntohs(pkt_get_length(pkt)));
+	if (len < (sizeof(pkt_t) + pkt_get_length(pkt) - sizeof(pkt->payload))) {
+		return E_NOMEM;
+}
 
 	ptypes_t type = pkt_get_type(pkt);
 	if((type != PTYPE_DATA) && (type != PTYPE_ACK) && (type != PTYPE_NACK)){
@@ -135,26 +139,25 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
  */
 pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 {
-	uint16_t plen = pkt_get_length(pkt);
+	uint16_t packetlen = pkt_get_length(pkt);
 
-  if (*len < sizeof(pkt_t) + plen) {
+  if (*len < sizeof(pkt_t) + packetlen) {
       return E_NOMEM;
   }
 	/* HEADER */;
 	*len = sizeof(pkt->header) - sizeof(uint32_t);
-	//pkt_set_length((pkt_t*)pkt, plen);
 	memcpy(buf, pkt, *len);
 
 	//copy crc1
 	uint32_t crc1 = calc_crc1(pkt);
 	pkt_set_crc1((pkt_t*) pkt, crc1);
 	memcpy(buf + *len, &crc1, sizeof(crc1));
-	*len += sizeof(pkt->header.crc1);
+	*len += sizeof(crc1);
 
 	/* PAYLOAD */
-	if ((pkt_get_tr(pkt)) || (plen > 0)) {
-		memcpy(buf + *len, pkt->payload, plen);
-		*len += plen;
+	if ((pkt_get_tr(pkt)) || (packetlen > 0)) {
+		memcpy(buf + *len, pkt->payload, packetlen);
+		*len += packetlen;
 
 		uint32_t crc2 = calc_crc2(pkt);
 		pkt_set_crc2((pkt_t *) pkt, crc2);
