@@ -14,31 +14,25 @@
 
 #include "wait_for_client.h"
 
-#define MAX_BUFFER_SIZE 1024
-/* Block the caller until a message is received on sfd,
- * and connect the socket to the source addresse of the received message
- * @sfd: a file descriptor to a bound socket but not yet connected
- * @return: 0 in case of success, -1 otherwise
- * @POST: This call is idempotent, it does not 'consume' the data of the message,
- * and could be repeated several times blocking only at the first call.
- */
-int wait_for_client(int sfd){
-  char buffer[MAX_BUFFER_SIZE];
+
+int wait_for_client(int sfd, char* buffer){
   socklen_t addrlen;
   struct sockaddr_in6 src_addr;
 
   memset(&src_addr, 0, sizeof(src_addr));
   addrlen = sizeof(src_addr);
-  ssize_t bytes_received = recvfrom(sfd, buffer, sizeof(buffer), MSG_PEEK, (struct sockaddr *)&src_addr, &addrlen);
+  int bytes_received = recvfrom(sfd, buffer, sizeof(buffer), MSG_PEEK, (struct sockaddr *)&src_addr, &addrlen);
   if (bytes_received == -1) {
       perror("recvfrom");
       return -1;
   }
+  fprintf(stdout, "First packet reveived\n");
 
   if (connect(sfd, (struct sockaddr *)&src_addr, addrlen) == -1) {
       perror("connect");
       return -1;
   }
+  fprintf(stdout, "Receiver connected to sender\n");
 
-  return 0;
+  return bytes_received;
 }

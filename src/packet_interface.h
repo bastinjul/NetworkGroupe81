@@ -18,6 +18,11 @@ typedef enum {
 #define MAX_PAYLOAD_SIZE 512
 /* Taille maximale de Window */
 #define MAX_WINDOW_SIZE 31
+#define HEADER_SIZE 8
+#define CRC1_SIZE 4
+#define CRC2_SIZE 4
+#define BUFFER_SIZE 256
+#define MAX_SEQ_NUMBER 256
 
 /* Valeur de retours des fonctions */
 typedef enum {
@@ -48,7 +53,7 @@ void pkt_del(pkt_t*);
  * - Le CRC32 du header recu est le même que celui decode a la fin
  *   du header (en considerant le champ TR a 0)
  * - S'il est present, le CRC32 du payload recu est le meme que celui
- *   decode a la fin du payload 
+ *   decode a la fin du payload
  * - Le type du paquet est valide
  * - La longueur du paquet et le champ TR sont valides et coherents
  *   avec le nombre d'octets recus.
@@ -120,5 +125,13 @@ pkt_status_code pkt_set_payload(pkt_t*,
  * native de la machine!
  */
 pkt_status_code pkt_set_crc2(pkt_t*, const uint32_t crc2);
+
+/* calcule le crc1
+ */
+ uint32_t calc_crc1(const pkt_t* pkt);
+
+ /* calcule le crc2
+ 	*/
+	uint32_t calc_crc2(const pkt_t* pkt);
 
 #endif  /* __PACKET_INTERFACE_H_ */

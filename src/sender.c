@@ -3,9 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #include "real_address.h"
 #include "create_socket.h"
+#include "jacobson.h"
 
 
 const char* host;
@@ -15,7 +19,7 @@ FILE* inputfile;
 int main(int argc, const char* argv[]){
 
   if(!(argc == 3 || argc == 5)){
-    perror("Invalid arguments\n Usage : ./sender [-f/--filename] hostname port");
+    perror("Invalid arguments\n Usage : ./sender [-f/--file infile] hostname port");
     exit(EXIT_FAILURE);
   }
 
@@ -39,6 +43,7 @@ int main(int argc, const char* argv[]){
 
   const char* err = real_address(host, &addr);
   if(err != NULL){
+    fclose(inputfile);
     perror(err);
     exit(EXIT_FAILURE);
   }
@@ -46,6 +51,11 @@ int main(int argc, const char* argv[]){
   sfd = create_socket(NULL, -1, &addr, port);
   if(sfd < 0){
     perror("Create socket");
-    close(sfd);
+    fclose(inputfile);
   }
+
+  fd_set readfds, writefds;
+	int nfds = sfd + 1;
+
+	fcntl(sfd, F_SETFL, fcntl(sfd, F_GETFL) | O_NONBLOCK);
 }
