@@ -11,18 +11,21 @@
 #include "create_socket.h"
 #include "wait_for_client.h"
 #include "packet_interface.h"
+#include "util.h"
 
+//VARIABLES
 const char* host;
 int port, sfd;
 struct sockaddr_in6 addr;
 socklen_t addrlen;
 FILE* outputfile;
-int all_pkt_received = 0;
+int all_pkt_received = 1;
 int lastack = -1;
 int begin_window = 0;
-int window_size = MAX_WINDOW_SIZE+1;
+int window_size = MAX_WINDOW_SIZE;
 int nbr_arg;
 
+//STRUCTURES
 typedef enum pkt_received_state{
   ACK,
   FREE,
@@ -47,18 +50,18 @@ struct __attribute__((__packed__)) pkt {
 	uint32_t crc2;
 };
 
+//BUFFER
 pkt_received_t BUFFER[BUFFER_SIZE];
 
-
+//FUNCTIONS
 int write_data(pkt_t* pkt, FILE* file);
 void treat_data(char* data, int size);
-void send_ack(pkt_t* pkt, ptypes_t type);
+void send_ack(uint16_t lenth, uint32_t timestamp, ptypes_t type);
 int is_in_window(int seqnum);
 void slide();
-void add_to_buffer(pkt_t* pkt);
+void add_to_buffer(pkt_t* pkt, int seqnum);
 
 int main(int argc, const char* argv[]){
-  addrlen = sizeof(addr);
   nbr_arg = argc;
 
   if(!(argc == 3 || argc == 5)){
@@ -88,6 +91,7 @@ int main(int argc, const char* argv[]){
     perror(err);
     exit(EXIT_FAILURE);
   }
+  addrlen = sizeof(addr);
 
   sfd = create_socket(&addr, port, NULL, -1);
 
@@ -127,16 +131,19 @@ int write_data(struct pkt* receive_pkt, FILE* file){
   if(nbr_arg == 5){
     if(fwrite(receive_pkt->payload, pkt_get_length(receive_pkt), 1, file) != pkt_get_length(receive_pkt)){
       perror("fwrite");
-      return 1;
+      return 0;
     }
     fflush(file);
   }
   else{
     fprintf(stdout, "Data Received : %s\n", receive_pkt->payload);
   }
-  return 0;
+  return 1;
 }
 
+/*
+ *
+ */
 void treat_data(char* data, int size){
   pkt_t *received_pkt = pkt_new();
   pkt_status_code received_pkt_status = pkt_decode(data, size, received_pkt);
@@ -147,15 +154,15 @@ void treat_data(char* data, int size){
     //if tr == 1
     if(!pkt_get_tr(received_pkt)){
       fprintf(stdout, "packet with tr == 1\n");
-      send_ack(received_pkt, PTYPE_NACK);
+      send_ack(pkt_get_length(received_pkt), pkt_get_timestamp(received_pkt), PTYPE_NACK);
     }
     //if tr == 0
     else{
-      int seqnum = pkt_get_seqnum(received_pkt);
+      int seqnum = pkt_get_seqnum(received_pkt)%MAX_SEQ_NUMBER;
 
       //if seqnum of received_packet is in window
       if(is_in_window(seqnum)){
-        add_to_buffer(received_pkt);
+        add_to_buffer(received_pkt, seqnum);
         window_size--;
 
         //if the packet is the first of the window we slide the window
@@ -163,7 +170,7 @@ void treat_data(char* data, int size){
           slide();
         }
         else{
-          send_ack(received_pkt, PTYPE_ACK);
+          send_ack(pkt_get_length(received_pkt), pkt_get_timestamp(received_pkt), PTYPE_ACK);
         }
       }
       else{
@@ -176,9 +183,12 @@ void treat_data(char* data, int size){
   }
 }
 
-void send_ack(pkt_t* pkt, ptypes_t type){
-  if(pkt_get_length(pkt) < MAX_PAYLOAD_SIZE){
-    all_pkt_received = 1;
+/*
+ *
+ */
+void send_ack(uint16_t length, uint32_t timestamp, ptypes_t type){
+  if(length == 0){
+    all_pkt_received = 0;
   }
   pkt_t* pkt_ack = pkt_new();
   pkt_set_type(pkt_ack, type);
@@ -186,12 +196,17 @@ void send_ack(pkt_t* pkt, ptypes_t type){
   pkt_set_window(pkt_ack, window_size);
   pkt_set_length(pkt_ack, 0);
   pkt_set_seqnum(pkt_ack, lastack);
-  pkt_set_timestamp(pkt_ack, (uint32_t)time(NULL) - pkt_get_timestamp(pkt));
+  struct timeval *timev;
+  timev = (struct timeval*)malloc(sizeof(struct timeval));
+  if(gettimeofday(timev, NULL) != 0){
+    perror("gettimeofday");
+  }
+  pkt_set_timestamp(pkt_ack, timeval_to_millisec(timev) - timestamp);
+  free(timev);
 
   char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
-  size_t* size = (size_t *)malloc(sizeof(size_t));
-  *size = sizeof(data);
-  pkt_encode(pkt_ack, data, size);
+  size_t size = sizeof(data);
+  pkt_encode(pkt_ack, data, &size);
   int bytes_sent = sendto(sfd, data, HEADER_SIZE + CRC1_SIZE, 0, (struct sockaddr *) &addr, addrlen);
   if(bytes_sent < 0){
     perror("sendto");
@@ -205,39 +220,46 @@ void send_ack(pkt_t* pkt, ptypes_t type){
  * check if seqnum is in the window
  */
 int is_in_window(int seqnum){
-  int end_window = (begin_window + MAX_WINDOW_SIZE)%BUFFER_SIZE;
+  int end_window = (begin_window + MAX_WINDOW_SIZE)%(BUFFER_SIZE-1);
   if(end_window < begin_window){
     if(seqnum <= end_window){
-      return 0;
+      return 1;
     }
-    return 1;
+    return 0;
   }
   else{
     if(seqnum <= end_window && seqnum >= begin_window){
-      return 0;
+      return 1;
     }
   }
-  return 1;
+  return 0;
 }
 /*
  * Slide the window and write the data
  */
 void slide(){
+  uint16_t length = 0;
+  uint32_t timestamp = 0;
   while(BUFFER[begin_window].state == ACK){
+    length = pkt_get_length(BUFFER[begin_window].pkt);
+    timestamp = pkt_get_timestamp(BUFFER[begin_window].pkt);
     if(!write_data(BUFFER[begin_window].pkt, outputfile)){
       perror("write fail");
     }
     BUFFER[begin_window].state = FREE;
     pkt_del(BUFFER[begin_window].pkt);
-    begin_window = (begin_window+1)%BUFFER_SIZE;
+    BUFFER[begin_window].pkt = NULL;
+    begin_window = (begin_window+1)%(BUFFER_SIZE-1);
     window_size++;
-    lastack++;
+    lastack = (lastack+1)%MAX_SEQ_NUMBER;
   }
-  send_ack(BUFFER[lastack].pkt, PTYPE_ACK);
+  send_ack(length, timestamp, PTYPE_ACK);
 }
 
-void add_to_buffer(pkt_t* pkt){
-  int seqnum = (int)pkt_get_seqnum(pkt);
+/*
+ *
+ */
+void add_to_buffer(pkt_t* pkt, int seqnum){
   BUFFER[seqnum].pkt = pkt;
   BUFFER[seqnum].state = ACK;
 }

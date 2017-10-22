@@ -22,7 +22,7 @@ typedef enum {
 #define CRC1_SIZE 4
 #define CRC2_SIZE 4
 #define BUFFER_SIZE 256
-#define MAX_SEQ_NUMBER 256
+#define MAX_SEQ_NUMBER 255
 
 /* Valeur de retours des fonctions */
 typedef enum {
