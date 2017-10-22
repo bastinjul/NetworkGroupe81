@@ -79,10 +79,12 @@ int main(int argc, const char* argv[]){
       perror("Opening File");
       exit(EXIT_FAILURE);
     }
+    fprintf(stdout, "Opening File : %s\n", argv[2]);
   }
   else{
     port = atoi(argv[2]);
     host = argv[1];
+    fprintf(stdout, "Host = %s, Port = %d\n", host, port);
   }
 
   const char* err = real_address(host, &addr);
@@ -100,21 +102,20 @@ int main(int argc, const char* argv[]){
     perror("Create socket");
     exit(EXIT_FAILURE);
   }
-
-  char first_pkt[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
-  int bytes_received = wait_for_client(sfd, first_pkt);
+  fprintf(stdout, "Socket created, Waiting the first message\n");
+  int bytes_received = wait_for_client(sfd);
   if(bytes_received < 0){
     fclose(outputfile);
     perror("Wait for client");
     exit(EXIT_FAILURE);
   }
-  treat_data(first_pkt, bytes_received);
 
   while(all_pkt_received){
     char  rec_pkt[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
-    int b_received = recvfrom(sfd, rec_pkt, sizeof(rec_pkt), MSG_PEEK, (struct sockaddr *)&addr, &addrlen);
+    int b_received = read(sfd, rec_pkt, sizeof(rec_pkt));
+    fprintf(stdout, "bytes_received : %d\n", b_received);
     if(b_received < 0){
-      perror("recvfrom");
+      perror("read");
     }
     treat_data(rec_pkt, b_received);
   }
@@ -145,6 +146,7 @@ int write_data(struct pkt* receive_pkt, FILE* file){
  *
  */
 void treat_data(char* data, int size){
+  fprintf(stdout, "traitement des données\n");
   pkt_t *received_pkt = pkt_new();
   pkt_status_code received_pkt_status = pkt_decode(data, size, received_pkt);
 
@@ -152,13 +154,15 @@ void treat_data(char* data, int size){
   if(received_pkt_status == PKT_OK && pkt_get_type(received_pkt) == PTYPE_DATA){
 
     //if tr == 1
-    if(!pkt_get_tr(received_pkt)){
+    if(pkt_get_tr(received_pkt)){
       fprintf(stdout, "packet with tr == 1\n");
       send_ack(pkt_get_length(received_pkt), pkt_get_timestamp(received_pkt), PTYPE_NACK);
     }
     //if tr == 0
     else{
+      fprintf(stdout, "packet with tr == 0\n");
       int seqnum = pkt_get_seqnum(received_pkt)%MAX_SEQ_NUMBER;
+      fprintf(stdout, "seqnum of packet : %d\n", seqnum);
 
       //if seqnum of received_packet is in window
       if(is_in_window(seqnum)){
@@ -207,7 +211,7 @@ void send_ack(uint16_t length, uint32_t timestamp, ptypes_t type){
   char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
   size_t size = sizeof(data);
   pkt_encode(pkt_ack, data, &size);
-  int bytes_sent = sendto(sfd, data, HEADER_SIZE + CRC1_SIZE, 0, (struct sockaddr *) &addr, addrlen);
+  int bytes_sent = write(sfd, data, size);
   if(bytes_sent < 0){
     perror("sendto");
   }

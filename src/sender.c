@@ -6,11 +6,13 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 #include "real_address.h"
 #include "create_socket.h"
 #include "jacobson.h"
 #include "util.h"
+#include "packet_interface.h"
 
 //VARIABLES
 const char* host;
@@ -25,18 +27,17 @@ int size_receiver_window = 1;
 int seqnum = 0;
 int begin_window = 0;
 int ptr_add_buffer = 0;
+int ptr_sending = 0;
 const uint32_t max_timeval = 2000;
 uint8_t window_size = MAX_WINDOW_SIZE;
 
-//BUFFER
-pkt_sender_t BUFFER[BUFFER_SIZE];
 
 //STRUCTURES
 typedef enum{
   WAIT,
   ACKED,
   FREE,
-  SENT,
+  SEND,
 } state_t;
 
 typedef struct pkt_sender{
@@ -45,12 +46,15 @@ typedef struct pkt_sender{
   state_t state;
 } pkt_sender_t;
 
+//BUFFER
+pkt_sender_t BUFFER[BUFFER_SIZE];
+
 //FUNCTIONS
-int read_from_input(pkt_t* pkt);
+int read_from_input();
 void send_last_pkt();
 void send_pkt(pkt_t* pkt, int position_in_buffer);
 void slide_window(uint8_t ack_seqnum);
-int check_time();
+void check_time();
 void add_to_buffer(pkt_t* pkt);
 
 int main(int argc, const char* argv[]){
@@ -103,7 +107,7 @@ int main(int argc, const char* argv[]){
   for(int i = 0; i<BUFFER_SIZE; i++){
     BUFFER[i].state = FREE;
     BUFFER[i].pkt = NULL;
-    BUFFER[i].timestamp = 0;
+    BUFFER[i].timeval = 0;
   }
 
   FD_ZERO(&readfds);
@@ -121,8 +125,33 @@ int main(int argc, const char* argv[]){
   }
 
   while(!all_pkt_send){
+    if (((FD_ISSET(filefd, &readfds)&&(nbr_arg == 5))||(FD_ISSET(STDIN_FILENO, &readfds)&&(nbr_arg == 3))) && FD_ISSET(sfd, &writefds)){
+      if(!read_from_input()){
+        perror("read_from_input");
+      }
+      while (BUFFER[ptr_sending].state == WAIT && size_receiver_window > 0) {
+        send_pkt(BUFFER[ptr_sending].pkt, ptr_sending);
+        ptr_sending = (ptr_sending+1)%(BUFFER_SIZE-1);
+      }
+      all_pkt_send = all_pkt_read;
 
+    }
+    if(FD_ISSET(sfd, &readfds)){
+      char data[HEADER_SIZE + CRC1_SIZE];
+      ssize_t read_bytes = read(sfd, data, HEADER_SIZE + CRC1_SIZE);
+      pkt_t* ack_pkt = pkt_new();
+      if(pkt_decode(data, read_bytes, ack_pkt) == PKT_OK){
+        if(pkt_get_type(ack_pkt) == PTYPE_ACK){
+          slide_window(pkt_get_seqnum(ack_pkt));
+          size_receiver_window = pkt_get_window(ack_pkt);
+        }
+        else if(pkt_get_type(ack_pkt) == PTYPE_NACK){
+          send_pkt(BUFFER[pkt_get_seqnum(ack_pkt)].pkt, pkt_get_seqnum(ack_pkt));
+        }
+      }
 
+    }
+    check_time();
   }
   send_last_pkt();
 }
@@ -130,7 +159,6 @@ int main(int argc, const char* argv[]){
 /*
  * Read data from file or stdin and put pkt in buffer
  * @return 1 on success
- * @return 0 if eof or 'STOP' (stdin)
  */
 int read_from_input(){
   //from stdin
@@ -139,6 +167,7 @@ int read_from_input(){
     int n = read(STDIN_FILENO, buf, MAX_PAYLOAD_SIZE);
     if(n == -1){
       perror("read");
+      return 0;
     }
     else{
       if(strcmp(buf, "STOP") == 0){
@@ -155,6 +184,7 @@ int read_from_input(){
 
       seqnum = (seqnum+1)%MAX_SEQ_NUMBER;
       add_to_buffer(pkt);
+      return 1;
     }
   }
   //from file
@@ -163,6 +193,7 @@ int read_from_input(){
     int n = read(filefd, buf, MAX_PAYLOAD_SIZE);
     if(n == -1){
       perror("read");
+      return 0;
     }
     else{
       if(n < MAX_PAYLOAD_SIZE){
@@ -178,35 +209,35 @@ int read_from_input(){
 
       seqnum = (seqnum+1)%MAX_SEQ_NUMBER;
       add_to_buffer(pkt);
+      return 1;
     }
   }
+  return 0;
 }
 
 /*
  * Send the last packet with empty payload
  */
 void send_last_pkt(){
-  pkt_t* lastptk = pkt_new();
+  pkt_t* lastpkt = pkt_new();
   pkt_set_type(lastpkt, PTYPE_DATA);
   pkt_set_tr(lastpkt, 0);
   pkt_set_window(lastpkt, window_size);
   pkt_set_seqnum(lastpkt, seqnum);
   pkt_set_length(lastpkt, 0);
-  struct timeval *timev;
-  timev = (struct timeval*)malloc(sizeof(struct timeval));
-  if(gettimeofday(timev, NULL) != 0){
+  struct timeval timev;
+  if(gettimeofday(&timev, NULL) != 0){
     perror("gettimeofday");
   }
-  pkt_set_timestamp(lastpkt, timeval_to_millisec(timev));
-  free(timev);
+  pkt_set_timestamp(lastpkt, timeval_to_millisec(&timev));
 
   char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
   size_t size = sizeof(data);
   pkt_encode(lastpkt, data, &size);
 
-  int bytes_sent = sendto(sfd, data, HEADER_SIZE + CRC1_SIZE, 0, (struct sockaddr *) &addr, addrlen);
+  int bytes_sent = write(sfd, data, sizeof(data));
   if(bytes_sent < 0){
-    perror("sendto");
+    perror("write");
   }
   fprintf(stdout, "Bytes send : %d\n", bytes_sent);
 }
@@ -219,29 +250,37 @@ void send_pkt(pkt_t* pkt, int position_in_buffer){
   if(gettimeofday(&timev, NULL) != 0){
     perror("gettimeofday");
   }
-  uint32_t timestamp = timeval_to_millisec(timev);
+  uint32_t timestamp = timeval_to_millisec(&timev);
   pkt_set_timestamp(pkt, timestamp);
-  free(timev);
 
-  BUFFER[position_in_buffer].timestamp = timestamp;
+  BUFFER[position_in_buffer].timeval = timestamp;
 
   char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
   size_t size = sizeof(data);
   pkt_encode(pkt, data, &size);
 
-  int bytes_sent = sendto(sfd, data, HEADER_SIZE + CRC1_SIZE, 0, (struct sockaddr *) &addr, addrlen);
+  int bytes_sent = write(sfd, data, sizeof(data));
   if(bytes_sent < 0){
-    perror("sendto");
+    perror("write2");
   }
-  fprintf(stdout, "Bytes send : %d\n", bytes_sent);
+  fprintf(stdout, "Bytes send2 : %d\n", bytes_sent);
 
   BUFFER[position_in_buffer].state = SEND;
 }
 
 /*
- * Slide the window of sending
+ * Slide the window of sending and free acked packets
  */
 void slide_window(uint8_t ack_seqnum){
+  if(((begin_window < (begin_window+MAX_WINDOW_SIZE)%(BUFFER_SIZE-1)) && (ack_seqnum >= begin_window))||
+    ((begin_window > (begin_window+MAX_WINDOW_SIZE)%(BUFFER_SIZE-1))&&((ack_seqnum<begin_window+MAX_WINDOW_SIZE)||(ack_seqnum>begin_window)))){
+    while(begin_window != (ack_seqnum+1)%(BUFFER_SIZE-1)){
+      BUFFER[begin_window].state = ACKED;
+      pkt_del(BUFFER[begin_window].pkt);
+      BUFFER[begin_window].timeval = 0;
+      begin_window = (begin_window+1)%(BUFFER_SIZE-1);
+    }
+  }
 
 }
 
@@ -250,13 +289,15 @@ void slide_window(uint8_t ack_seqnum){
  * Resend all packet out of time and restart timer
  */
 void check_time(){
-  for(int i = begin_window; i>begin_window || i<begin_window+32; i = (i+1)%(BUFFER_SIZE-1)){
-    struct timestamp timev;
+  for(int i = begin_window; (begin_window < (begin_window+MAX_WINDOW_SIZE)%(BUFFER_SIZE-1) && i<begin_window+MAX_WINDOW_SIZE)
+                          || (begin_window > (begin_window+MAX_WINDOW_SIZE)%(BUFFER_SIZE-1) && ((i<begin_window+MAX_WINDOW_SIZE)||(i>begin_window)));
+                          i = (i+1)%(BUFFER_SIZE-1)){
+    struct timeval timev;
     if(gettimeofday(&timev, NULL) != 0){
       perror("gettimeofday");
     }
-    uint32_t timeval = timeval_to_millisec(timev);
-    if(timeval - BUFFER[i].timestamp > max_timeval && BUFFER[i].state == SEND){
+    uint32_t timeval = timeval_to_millisec(&timev);
+    if(timeval - BUFFER[i].timeval > max_timeval && BUFFER[i].state == SEND){
       send_pkt(BUFFER[i].pkt, i);
     }
   }

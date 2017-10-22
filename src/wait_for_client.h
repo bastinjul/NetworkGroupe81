@@ -8,6 +8,6 @@
  * @POST: This call is idempotent, it does not 'consume' the data of the message,
  * and could be repeated several times blocking only at the first call.
  */
-int wait_for_client(int sfd, char* buffer);
+int wait_for_client(int sfd);
 
 #endif
