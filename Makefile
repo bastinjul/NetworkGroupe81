@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Werror -Wshadow -Wextra -lz
-DEPS =  src/real_address.h src/packet_interface.h src/create_socket.h src/create_socket.h src/wait_for_client.h src/read_write_loop.h src/jacobson.h src/util.h
+DEPS =  src/real_address.h src/packet_interface.h  src/create_socket.h src/wait_for_client.h src/jacobson.h src/util.h
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
