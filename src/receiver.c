@@ -120,7 +120,7 @@ int main(int argc, const char* argv[]){
     fprintf(stdout, "===========================================================================================\n");
     fprintf(stdout, "===========================================================================================\n");
     char  rec_pkt[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
-    int b_received = read(sfd, rec_pkt, sizeof(rec_pkt));
+    int b_received = read(sfd, rec_pkt, HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE);
     fprintf(stdout, "bytes_received : %d\n", b_received);
     if(b_received < 0){
       perror("read");
@@ -140,7 +140,7 @@ int write_data(struct pkt* receive_pkt, FILE* file){
   if(nbr_arg == 5){
     fprintf(stdout, "Writing data in file\n");
     fprintf(stdout, "Data : %s\n", receive_pkt->payload);
-    if(fwrite(receive_pkt->payload, pkt_get_length(receive_pkt), 1, file) != pkt_get_length(receive_pkt)){
+    if(fwrite(receive_pkt->payload, 1, pkt_get_length(receive_pkt), file) != pkt_get_length(receive_pkt)){
       perror("fwrite");
       return 0;
     }
@@ -242,9 +242,9 @@ void send_ack(uint16_t length, uint32_t timestamp, ptypes_t type){
   size_t size = sizeof(data);
   pkt_encode(pkt_ack, data, &size);
   fprintf(stdout, "Sending ack with seqnum = %d\n", lastack);
-  int bytes_sent = write(sfd, data, size);
+  int bytes_sent = send(sfd, data, size, 0);
   if(bytes_sent < 0){
-    perror("sendto");
+    perror("send");
   }
   fprintf(stdout, "Bytes send : %d\n", bytes_sent);
 

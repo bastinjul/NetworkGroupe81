@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Werror -Wshadow -Wextra -lz
+CFLAGS = -Wall -Werror -Wshadow -Wextra -lz -std=gnu99
 DEPS =  src/real_address.h src/packet_interface.h  src/create_socket.h src/wait_for_client.h src/jacobson.h src/util.h
 
 %.o: %.c $(DEPS)

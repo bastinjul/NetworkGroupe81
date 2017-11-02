@@ -1,0 +1,195 @@
+commit 14708c8280e2c7b24117aeb1a891d0d222ebed86
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Mon Oct 23 04:33:13 2017 +0200
+
+    premiere soumission
+
+ LINGI1341-linksim-master.zip           | Bin 13203 -> 0 bytes
+ Makefile                               |   2 +-
+ rapport.pdf                            | Bin 0 -> 127391 bytes
+ src/read_write_loop.c                  |  78 -------------------
+ src/read_write_loop.h                  |  11 ---
+ src/receiver.c                         |  53 ++++++++++++-
+ src/sender.c                           | 138 +++++++++++++++++++++++++++------
+ statement.pdf                          | Bin 212891 -> 0 bytes
+ test/file_medium.dat                   |  24 ------
+ test/output_medium.dat                 |   0
+ test/file_large.dat => tests/large.dat |   0
+ {test => tests}/output_large.dat       |   0
+ {test => tests}/output_small.dat       |   0
+ test/file_small.dat => tests/small.dat |   0
+ {test => tests}/test.sh                |   0
+ 15 files changed, 167 insertions(+), 139 deletions(-)
+
+commit 75e624fb2f50dd8ba50f31e979c58cc81bb7726b
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sun Oct 22 18:11:00 2017 +0200
+
+    premiere version, envoie des données et reception mais erreur traitement
+
+ src/receiver.c          | 20 ++++++-----
+ src/sender.c            | 93 +++++++++++++++++++++++++++++++++++--------------
+ src/wait_for_client.c   | 24 ++++++++-----
+ src/wait_for_client.h   |  2 +-
+ test/file_large.dat     | 72 ++++++++++++++++++++++++++++++++++++++
+ test/file_medium.dat    | 24 +++++++++++++
+ test/file_small.dat     |  6 ++++
+ test/output_large.dat   |  0
+ test/output_medium.dat  |  0
+ test/output_small.dat   |  0
+ test.sh => test/test.sh |  0
+ 11 files changed, 197 insertions(+), 44 deletions(-)
+
+commit 8c079aa704a952516ba1a2e3db4ed71edbcc8a2e
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sun Oct 22 15:42:48 2017 +0200
+
+    ajout des fonction importantes pour sender
+
+ Makefile               |   8 +-
+ src/packet_interface.h |   2 +-
+ src/receiver.c         |  80 +++++++++++-------
+ src/sender.c           | 220 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ src/util.c             |   6 ++
+ src/util.h             |   9 ++
+ 6 files changed, 287 insertions(+), 38 deletions(-)
+
+commit 5515f99b5f4d31731bb1e1b64ddd2b35ffc3b280
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sat Oct 21 22:44:52 2017 +0200
+
+    ajout jacobson
+
+ src/jacobson.c | 35 +++++++++++++++++++++++++++++++++++
+ src/jacobson.h | 10 ++++++++++
+ 2 files changed, 45 insertions(+)
+
+commit 55b767d529da402e596ac17956bed1d749e2eef4
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sat Oct 21 22:44:26 2017 +0200
+
+    premiere version receiver
+
+ Makefile               |   4 +-
+ src/packet_interface.h |  17 +++-
+ src/receiver.c         | 227 +++++++++++++++++++++++++++++++++++++++++--------
+ src/sender.c           |  14 ++-
+ src/wait_for_client.c  |  18 ++--
+ src/wait_for_client.h  |   4 +-
+ 6 files changed, 227 insertions(+), 57 deletions(-)
+
+commit f6aca41e58efc0f90f0052ba17e759c90b36ffef
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Fri Oct 20 13:11:07 2017 +0200
+
+    remove objet files
+
+ receiver              | Bin 19080 -> 0 bytes
+ sender                | Bin 14944 -> 0 bytes
+ src/real_address.o    | Bin 1968 -> 0 bytes
+ src/receiver.o        | Bin 3248 -> 0 bytes
+ src/sender.o          | Bin 2936 -> 0 bytes
+ src/wait_for_client.o | Bin 2024 -> 0 bytes
+ 6 files changed, 0 insertions(+), 0 deletions(-)
+
+commit b9bac20c89610a9ceafecd24f93b607c3f032320
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Fri Oct 20 13:09:49 2017 +0200
+
+    version finale packet_implem.c
+
+ src/packet_implem.c | 33 ++++++++++++++++++---------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
+
+commit ac34ddabd1a802c4dbc328fb3b677fe929c97eb8
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Fri Oct 20 01:33:12 2017 +0200
+
+    rearrangement des fichiers et fin de packet_implem.c
+
+ Makefile                                     |  17 +++++
+ receiver                                     | Bin 0 -> 19080 bytes
+ receiver.c                                   |  58 -----------------
+ sender                                       | Bin 0 -> 14944 bytes
+ create_socket.c => src/create_socket.c       |   0
+ create_socket.h => src/create_socket.h       |   0
+ packet_implem.c => src/packet_implem.c       |  41 +++++-------
+ packet_interface.h => src/packet_interface.h |   0
+ read_write_loop.c => src/read_write_loop.c   |   0
+ read_write_loop.h => src/read_write_loop.h   |   0
+ real_address.c => src/real_address.c         |   0
+ real_address.h => src/real_address.h         |   0
+ src/real_address.o                           | Bin 0 -> 1968 bytes
+ src/receiver.c                               |  90 +++++++++++++++++++++++++++
+ src/receiver.o                               | Bin 0 -> 3248 bytes
+ sender.c => src/sender.c                     |   3 +-
+ src/sender.o                                 | Bin 0 -> 2936 bytes
+ wait_for_client.c => src/wait_for_client.c   |   0
+ wait_for_client.h => src/wait_for_client.h   |   0
+ src/wait_for_client.o                        | Bin 0 -> 2024 bytes
+ 20 files changed, 124 insertions(+), 85 deletions(-)
+
+commit cec5a6ebe585d72a14350a7643aa0928c70d16a9
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Thu Oct 19 21:04:10 2017 +0200
+
+    ajout des fonction pkt_decode et pkt_encode
+
+ packet_implem.c | 52 ++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 46 insertions(+), 6 deletions(-)
+
+commit 94ab41e4e0059a5766ac6bc37bb67e3a42b23e5b
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Thu Oct 19 17:59:04 2017 +0200
+
+    ajout de la fonction pkt_encode et modification de la structure d'un packet
+
+ packet_implem.c | 108 ++++++++++++++++++++++++++++++++++++++++++--------------
+ receiver.c      |  18 ++++++++--
+ sender.c        |   4 +++
+ 3 files changed, 100 insertions(+), 30 deletions(-)
+
+commit e9e37d499df520d6e15fdb1b2765b6f6006e91de
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Thu Oct 19 15:58:07 2017 +0200
+
+    ajout des fichiers receiver.c et sender.c
+
+ create_socket.c   |  4 ++--
+ read_write_loop.c | 14 +++++++-------
+ receiver.c        | 46 ++++++++++++++++++++++++++++++++++++++++++++++
+ sender.c          | 46 ++++++++++++++++++++++++++++++++++++++++++++++
+ wait_for_client.c |  4 ++--
+ 5 files changed, 103 insertions(+), 11 deletions(-)
+
+commit d34b13ad058adb8ab4b0afd608862deaae755347
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Thu Oct 19 14:57:24 2017 +0200
+
+    petites modifications
+
+ create_socket.c   | 24 ++++++++----------------
+ real_address.c    |  4 ++--
+ wait_for_client.c | 28 ++++++++++++++--------------
+ 3 files changed, 24 insertions(+), 32 deletions(-)
+
+commit 481ba2f0a129264adaf7e8481b528e7390a39a54
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Wed Oct 18 17:40:59 2017 +0200
+
+    ajout des fichiers de base du projet
+
+ LINGI1341-linksim-master.zip | Bin 0 -> 13203 bytes
+ create_socket.c              |  64 +++++++++++++
+ create_socket.h              |  20 ++++
+ packet_implem.c              | 218 +++++++++++++++++++++++++++++++++++++++++++
+ packet_interface.h           | 124 ++++++++++++++++++++++++
+ read_write_loop.c            |  78 ++++++++++++++++
+ read_write_loop.h            |  11 +++
+ real_address.c               |  54 +++++++++++
+ real_address.h               |  17 ++++
+ statement.pdf                | Bin 0 -> 212891 bytes
+ test.sh                      |  58 ++++++++++++
+ wait_for_client.c            |  44 +++++++++
+ wait_for_client.h            |  13 +++
+ 13 files changed, 701 insertions(+)

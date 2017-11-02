@@ -44,6 +44,7 @@ pkt_t* pkt_new()
 	if(pkt == NULL){
 		return NULL;
 	}
+
 	return pkt;
 }
 
@@ -56,7 +57,6 @@ void pkt_del(pkt_t *pkt)
 			free(pkt);
 		}
 }
-
 /*
  * Decode des donnees recues et cree une nouvelle structure pkt.
  * Le paquet recu est en network byte-order.
@@ -88,11 +88,11 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt)
 	/* HEADER */
 
 	memcpy(pkt, data, sizeof(pkt->header));
-	ptr += sizeof(pkt->header);
+	ptr+=sizeof(pkt->header);
 
-	if (len < (sizeof(pkt_t) + pkt_get_length(pkt) - sizeof(pkt->payload))) {
-		return E_NOMEM;
-}
+	// if (len < (sizeof(pkt_t) + pkt_get_length(pkt) - MAX_PAYLOAD_SIZE)) {
+	// 	return E_NOMEM;
+	// }
 
 	ptypes_t type = pkt_get_type(pkt);
 	if((type != PTYPE_DATA) && (type != PTYPE_ACK) && (type != PTYPE_NACK)){
@@ -141,7 +141,7 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 {
 	uint16_t packetlen = pkt_get_length(pkt);
 
-  if (*len < sizeof(pkt_t) + packetlen) {
+  if (*len < (sizeof(pkt_t) + packetlen - sizeof(pkt->payload))) {
       return E_NOMEM;
   }
 	/* HEADER */;
@@ -153,7 +153,6 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 	pkt_set_crc1((pkt_t*) pkt, crc1);
 	memcpy(buf + *len, &crc1, sizeof(crc1));
 	*len += sizeof(crc1);
-
 	/* PAYLOAD */
 	if ((pkt_get_tr(pkt)) || (packetlen > 0)) {
 		memcpy(buf + *len, pkt->payload, packetlen);
@@ -164,6 +163,7 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 		memcpy(buf + *len, &crc2, sizeof(crc2));
 		*len += sizeof(crc2);
 	}
+	fprintf(stdout, "len = %zu\n", *len);
 	return PKT_OK;
 }
 

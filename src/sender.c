@@ -6,6 +6,7 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <fcntl.h>
 
 #include "real_address.h"
@@ -144,7 +145,7 @@ int main(int argc, const char* argv[]){
       if(!read_from_input()){
         perror("read_from_input");
       }
-      while (BUFFER[ptr_sending].state == WAIT && size_receiver_window > 0) {
+      while (BUFFER[ptr_sending].state == WAIT && size_receiver_window > 0 && ptr_sending < size_receiver_window) {
         send_pkt(BUFFER[ptr_sending].pkt, ptr_sending);
         ptr_sending = (ptr_sending+1)%(BUFFER_SIZE-1);
       }
@@ -228,6 +229,7 @@ int read_from_input(){
       pkt_set_length(pkt, n);
       pkt_set_payload(pkt, buf, n);
 
+      fprintf(stdout, "Length :%d\n", pkt_get_length(pkt));
       fprintf(stdout, "payload = %s\n", pkt_get_payload(pkt));
 
       seqnum = (seqnum+1)%MAX_SEQ_NUMBER;
@@ -258,6 +260,8 @@ int read_from_input(){
       pkt_set_length(pkt, n);
       pkt_set_payload(pkt, buf, n);
 
+      fprintf(stdout, "Length :%d\n", pkt_get_length(pkt));
+
       seqnum = (seqnum+1)%MAX_SEQ_NUMBER;
       fprintf(stdout, "new seqnum = %d \n", seqnum);
       add_to_buffer(pkt);
@@ -272,12 +276,15 @@ int read_from_input(){
  */
 void send_last_pkt(){
   fprintf(stdout, "Sending last packet\n");
+  uint16_t length = 0;
   pkt_t* lastpkt = pkt_new();
   pkt_set_type(lastpkt, PTYPE_DATA);
   pkt_set_tr(lastpkt, 0);
   pkt_set_window(lastpkt, window_size);
   pkt_set_seqnum(lastpkt, seqnum);
-  pkt_set_length(lastpkt, 0);
+  pkt_set_length(lastpkt, length);
+  fprintf(stdout, "Length :%d\n", pkt_get_length(lastpkt));
+  pkt_set_payload(lastpkt, NULL, 0);
   struct timeval timev;
   if(gettimeofday(&timev, NULL) != 0){
     perror("gettimeofday");
@@ -288,11 +295,17 @@ void send_last_pkt(){
   size_t size = sizeof(data);
   pkt_encode(lastpkt, data, &size);
 
-  int bytes_sent = write(sfd, data, sizeof(data));
+  pkt_t* test = pkt_new();
+  pkt_decode(data, size, test);
+
+  int bytes_sent = send(sfd, data, size, 0);
   if(bytes_sent < 0){
-    perror("write");
+    perror("send");
   }
   fprintf(stdout, "Bytes send : %d\n", bytes_sent);
+
+  pkt_del(lastpkt);
+  pkt_del(test);
 }
 
 /*
@@ -311,13 +324,13 @@ void send_pkt(pkt_t* pkt, int position_in_buffer){
   BUFFER[position_in_buffer].timeval = timestamp;
 
   char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
-  size_t size = sizeof(data);
+  size_t size = HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE;
   pkt_encode(pkt, data, &size);
 
   fprintf(stdout, "Sending data\n");
-  int bytes_sent = write(sfd, data, size);
+  int bytes_sent = send(sfd, data, size, 0);
   if(bytes_sent < 0){
-    perror("write2");
+    perror("send2");
   }
   fprintf(stdout, "Bytes send2 : %d\n", bytes_sent);
 
