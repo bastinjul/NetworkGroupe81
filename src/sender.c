@@ -212,8 +212,8 @@ int read_from_input(){
       return 0;
     }
     else{
-      if(is_stop(buf)){
-        fprintf(stderr, "C'EST STOP\n");
+      if(n == 0){
+        fprintf(stderr, "EOF\n");
         all_pkt_read = 1;
       }
 

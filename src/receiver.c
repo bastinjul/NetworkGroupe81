@@ -147,7 +147,7 @@ int write_data(struct pkt* receive_pkt, FILE* file){
   }
   else{
     fprintf(stderr, "Data Received : %s\n", receive_pkt->payload);
-    fprintf(stdout, "%s\n", receive_pkt->payload);
+    write(STDOUT_FILENO, receive_pkt->payload, pkt_get_length(receive_pkt));
   }
   return 1;
 }
