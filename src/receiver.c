@@ -129,7 +129,9 @@ int main(int argc, const char* argv[]){
   }
 
   fprintf(stderr, "End of transfer\n");
-  fclose(outputfile);
+  if(nbr_arg == 5){
+    fclose(outputfile);
+  }
   return EXIT_SUCCESS;
 }
 
@@ -146,7 +148,6 @@ int write_data(struct pkt* receive_pkt, FILE* file){
     fflush(file);
   }
   else{
-    fprintf(stderr, "Data Received : %s\n", receive_pkt->payload);
     write(STDOUT_FILENO, receive_pkt->payload, pkt_get_length(receive_pkt));
   }
   return 1;

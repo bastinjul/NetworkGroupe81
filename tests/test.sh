@@ -25,3 +25,11 @@ exec "./sender" -f tests/file_large.dat ::1 12345 2> tests/sender_large.log &
 sleep 2
 
 cmp --silent tests/output_large.dat tests/file_large.dat && echo 'Files are the same' || echo 'Files are different'
+
+echo "Test 4 : sending file with no -f argument"
+
+exec "./receiver" ::1 12345 > tests/output_no_arg.dat 2> tests/receiver_no_arg.log &
+exec "./sender" ::1 12345 < tests/file_no_arg.dat 2> tests/sender_no_arg.log &
+sleep 2
+
+cmp --silent tests/output_no_arg.dat tests/file_no_arg.dat && echo 'Files are the same' || echo 'Files are different'
