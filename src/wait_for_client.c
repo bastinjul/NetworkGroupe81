@@ -29,7 +29,6 @@ int wait_for_client(int sfd){
   memset(&src_addr, 0, sizeof(src_addr));
   addrlen = sizeof(src_addr);
   ssize_t bytes_received = recvfrom(sfd, buffer, sizeof(buffer), MSG_PEEK, (struct sockaddr *)&src_addr, &addrlen);
-  fprintf(stdout, "Premier message recu, nombre de bytes: %d\n", (int)bytes_received);
   if (bytes_received == -1) {
       fprintf(stderr, "Error : recvfrom()\n");
       return -1;

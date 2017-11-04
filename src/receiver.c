@@ -77,15 +77,15 @@ int main(int argc, const char* argv[]){
 
     outputfile = fopen(argv[2], "w");
     if(outputfile == NULL){
-      perror("Opening File");
+      perror("Opening File\n");
       exit(EXIT_FAILURE);
     }
-    fprintf(stdout, "Opening File : %s\n", argv[2]);
+    fprintf(stderr, "Opening File : %s\n", argv[2]);
   }
   else{
     port = atoi(argv[2]);
     host = argv[1];
-    fprintf(stdout, "Host = %s, Port = %d\n", host, port);
+    fprintf(stderr, "Host = %s, Port = %d\n", host, port);
   }
 
   const char* err = real_address(host, &addr);
@@ -103,7 +103,7 @@ int main(int argc, const char* argv[]){
     perror("Create socket");
     exit(EXIT_FAILURE);
   }
-  fprintf(stdout, "Socket created, Waiting the first message\n");
+  fprintf(stderr, "Socket created, Waiting the first message\n");
   int bytes_received = wait_for_client(sfd);
   if(bytes_received < 0 && sfd > 0){
     fclose(outputfile);
@@ -117,18 +117,18 @@ int main(int argc, const char* argv[]){
     BUFFER[i].state = FREE;
   }
   while(all_pkt_received){
-    fprintf(stdout, "===========================================================================================\n");
-    fprintf(stdout, "===========================================================================================\n");
+    fprintf(stderr, "===========================================================================================\n");
+    fprintf(stderr, "===========================================================================================\n");
     char  rec_pkt[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
     int b_received = read(sfd, rec_pkt, HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE);
-    fprintf(stdout, "bytes_received : %d\n", b_received);
+    fprintf(stderr, "packet received\n");
     if(b_received < 0){
       perror("read");
     }
     treat_data(rec_pkt, b_received);
   }
 
-  fprintf(stdout, "End of transfer\n");
+  fprintf(stderr, "End of transfer\n");
   fclose(outputfile);
   return EXIT_SUCCESS;
 }
@@ -138,8 +138,7 @@ int main(int argc, const char* argv[]){
  */
 int write_data(struct pkt* receive_pkt, FILE* file){
   if(nbr_arg == 5){
-    fprintf(stdout, "Writing data in file\n");
-    fprintf(stdout, "Data : %s\n", receive_pkt->payload);
+    fprintf(stderr, "Writing data in file\n");
     if(fwrite(receive_pkt->payload, 1, pkt_get_length(receive_pkt), file) != pkt_get_length(receive_pkt)){
       perror("fwrite");
       return 0;
@@ -147,7 +146,8 @@ int write_data(struct pkt* receive_pkt, FILE* file){
     fflush(file);
   }
   else{
-    fprintf(stdout, "Data Received : %s\n", receive_pkt->payload);
+    fprintf(stderr, "Data Received : %s\n", receive_pkt->payload);
+    fprintf(stdout, "%s\n", receive_pkt->payload);
   }
   return 1;
 }
@@ -156,61 +156,51 @@ int write_data(struct pkt* receive_pkt, FILE* file){
  *
  */
 void treat_data(char* data, int size){
-  fprintf(stdout, "traitement des données\n");
+  fprintf(stderr, "Traitement des données\n");
   pkt_t *received_pkt = pkt_new();
   pkt_status_code received_pkt_status = pkt_decode(data, size, received_pkt);
-  fprintf(stdout, "Decode status : %d\n", received_pkt_status);
 
-  fprintf(stdout, "**************************************************\n");
-  fprintf(stdout, "Informations of the packet :\n");
-  fprintf(stdout, "Type : %d\n", pkt_get_type(received_pkt));
-  fprintf(stdout, "TR :%d\n", pkt_get_tr(received_pkt));
-  fprintf(stdout, "Window : %d\n", pkt_get_window(received_pkt));
-  fprintf(stdout, "seqnum :%d\n", pkt_get_seqnum(received_pkt));
-  fprintf(stdout, "Length : %d\n", pkt_get_length(received_pkt));
-  fprintf(stdout, "timestamp : %d\n", pkt_get_timestamp(received_pkt));
-  fprintf(stdout, "payload : %s\n", pkt_get_payload(received_pkt));
-  fprintf(stdout, "**************************************************\n");
+  fprintf(stderr, "**************************************************\n");
+  fprintf(stderr, "Informations of the packet :\n");
+  fprintf(stderr, "Type : %d\n", pkt_get_type(received_pkt));
+  fprintf(stderr, "TR :%d\n", pkt_get_tr(received_pkt));
+  fprintf(stderr, "Window : %d\n", pkt_get_window(received_pkt));
+  fprintf(stderr, "seqnum :%d\n", pkt_get_seqnum(received_pkt));
+  fprintf(stderr, "Length : %d\n", pkt_get_length(received_pkt));
+  fprintf(stderr, "timestamp : %u\n", pkt_get_timestamp(received_pkt));
+  fprintf(stderr, "**************************************************\n");
 
   //if packet if ok
   if(received_pkt_status == PKT_OK && pkt_get_type(received_pkt) == PTYPE_DATA){
 
     //if tr == 1
     if(pkt_get_tr(received_pkt)){
-      fprintf(stdout, "packet with tr == 1\n");
       send_ack(pkt_get_length(received_pkt), pkt_get_timestamp(received_pkt), PTYPE_NACK);
     }
     //if tr == 0
     else{
-      fprintf(stdout, "packet with tr == 0\n");
       int seqnum = pkt_get_seqnum(received_pkt)%MAX_SEQ_NUMBER;
-      fprintf(stdout, "seqnum of packet : %d\n", seqnum);
 
       //if seqnum of received_packet is in window
       if(is_in_window(seqnum)){
-        fprintf(stdout, "Is in window\n");
         add_to_buffer(received_pkt, seqnum);
         window_size--;
 
         //if the packet is the first of the window we slide the window
         if(seqnum == begin_window){
-          fprintf(stdout, "seqnum == begin_window : %d == %d \n", seqnum, begin_window);
           slide();
           first = 0;
         }
         else{
-          fprintf(stdout, "not in window, seqnum != begin_window : %d == %d\n", seqnum, begin_window);
           send_ack(pkt_get_length(received_pkt), pkt_get_timestamp(received_pkt), PTYPE_ACK);
         }
       }
       else{
-        fprintf(stdout, "Not in window\n");
         pkt_del(received_pkt);
       }
     }
   }
   else{
-    fprintf(stdout, "packet_status != PKT_OK, packet_status = %d\n", received_pkt_status);
     pkt_del(received_pkt);
   }
 }
@@ -219,8 +209,7 @@ void treat_data(char* data, int size){
  *
  */
 void send_ack(uint16_t length, uint32_t timestamp, ptypes_t type){
-  fprintf(stdout, "Sending ack\n");
-  fprintf(stdout, "Length of last pkt received : %d\n", length);
+  fprintf(stderr, "Sending ack\n");
   if(length == 0){
     all_pkt_received = 0;
   }
@@ -233,7 +222,7 @@ void send_ack(uint16_t length, uint32_t timestamp, ptypes_t type){
   struct timeval *timev;
   timev = (struct timeval*)malloc(sizeof(struct timeval));
   if(gettimeofday(timev, NULL) != 0){
-    perror("gettimeofday");
+    perror("gettimeofday\n");
   }
   pkt_set_timestamp(pkt_ack, timeval_to_millisec(timev) - timestamp);
   free(timev);
@@ -241,12 +230,11 @@ void send_ack(uint16_t length, uint32_t timestamp, ptypes_t type){
   char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
   size_t size = sizeof(data);
   pkt_encode(pkt_ack, data, &size);
-  fprintf(stdout, "Sending ack with seqnum = %d\n", lastack);
+  fprintf(stderr, "Sending ack with seqnum = %d\n", lastack);
   int bytes_sent = send(sfd, data, size, 0);
   if(bytes_sent < 0){
     perror("send");
   }
-  fprintf(stdout, "Bytes send : %d\n", bytes_sent);
 
   pkt_del(pkt_ack);
 }
@@ -273,21 +261,16 @@ int is_in_window(int seqnum){
  * Slide the window and write the data
  */
 void slide(){
-  fprintf(stdout, "--------------------------------------------------------------------------\n");
-  fprintf(stdout, "Sliding window\n");
-  fprintf(stdout, "lastack = %d\n", lastack);
-  fprintf(stdout, "begin_window = %d\n", begin_window);
-  fprintf(stdout, "--------------------------------------------------------------------------\n");
+  fprintf(stderr, "--------------------------------------------------------------------------\n");
+  fprintf(stderr, "Sliding window\n");
+  fprintf(stderr, "lastack = %d\n", lastack);
+  fprintf(stderr, "begin_window = %d\n", begin_window);
+  fprintf(stderr, "--------------------------------------------------------------------------\n");
   uint16_t length = 0;
   uint32_t timestamp = 0;
   while(BUFFER[begin_window].state == ACK){
-    fprintf(stdout, "--------------------------------------------------------------------------\n");
-    fprintf(stdout, "begin_window before :%d\n", begin_window);
-    fprintf(stdout, "lastack before : %d\n", lastack);
     length = pkt_get_length(BUFFER[begin_window].pkt);
-    fprintf(stdout, "Length = %d\n", length);
     timestamp = pkt_get_timestamp(BUFFER[begin_window].pkt);
-    fprintf(stdout, "timestamp = %d\n", timestamp);
     if(!write_data(BUFFER[begin_window].pkt, outputfile)){
       perror("write fail");
     }
@@ -297,9 +280,9 @@ void slide(){
     begin_window = (begin_window+1)%(BUFFER_SIZE-1);
     window_size++;
     lastack = (lastack+1)%MAX_SEQ_NUMBER;
-    fprintf(stdout, "begin_window after :%d\n", begin_window);
-    fprintf(stdout, "lastack after : %d\n", lastack);
-    fprintf(stdout, "--------------------------------------------------------------------------\n");
+    fprintf(stderr, "begin_window after :%d\n", begin_window);
+    fprintf(stderr, "lastack after : %d\n", lastack);
+    fprintf(stderr, "--------------------------------------------------------------------------\n");
   }
   if(first && begin_window == 1){
     lastack = 0;

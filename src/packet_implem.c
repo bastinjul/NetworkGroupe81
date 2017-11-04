@@ -163,7 +163,6 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len)
 		memcpy(buf + *len, &crc2, sizeof(crc2));
 		*len += sizeof(crc2);
 	}
-	fprintf(stdout, "len = %zu\n", *len);
 	return PKT_OK;
 }
 

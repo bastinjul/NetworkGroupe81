@@ -11,7 +11,6 @@
 
 #include "real_address.h"
 #include "create_socket.h"
-#include "jacobson.h"
 #include "util.h"
 #include "packet_interface.h"
 
@@ -35,6 +34,7 @@ int ptr_add_buffer = 0;
 int ptr_sending = 0;
 const uint32_t max_timeval = 2000;
 uint8_t window_size = MAX_WINDOW_SIZE;
+uint32_t rtt = 2000;
 
 
 //STRUCTURES
@@ -83,14 +83,14 @@ int main(int argc, const char* argv[]){
       perror("Opening File");
       exit(EXIT_FAILURE);
     }
-    fprintf(stdout, "Sending file %s\n", argv[2]);
+    fprintf(stderr, "Sending file %s\n", argv[2]);
     filefd = fileno(inputfile);
   }
   else{
     port = atoi(argv[2]);
     host = argv[1];
-    fprintf(stdout, "Sending messages from stdin\n");
-    fprintf(stdout, "Enter 'STOP' to stop the connection\n");
+    fprintf(stderr, "Sending messages from stdin\n");
+    fprintf(stderr, "Enter 'STOP' to stop the connection\n");
   }
 
   const char* err = real_address(host, &addr);
@@ -141,11 +141,11 @@ int main(int argc, const char* argv[]){
 
 
     if (((FD_ISSET(filefd, &readfds)&&(nbr_arg == 5))||(FD_ISSET(STDIN, &readfds)&&(nbr_arg == 3))) && FD_ISSET(sfd, &writefds) && !all_pkt_send){
-      fprintf(stdout, "Read file and send to receiver\n");
+      fprintf(stderr, "Read file and send to receiver\n");
       if(!read_from_input()){
         perror("read_from_input");
       }
-      while (BUFFER[ptr_sending].state == WAIT && size_receiver_window > 0 && ptr_sending < size_receiver_window) {
+      while (BUFFER[ptr_sending].state == WAIT && size_receiver_window > 0) {
         send_pkt(BUFFER[ptr_sending].pkt, ptr_sending);
         ptr_sending = (ptr_sending+1)%(BUFFER_SIZE-1);
       }
@@ -153,26 +153,23 @@ int main(int argc, const char* argv[]){
 
     }
     if(FD_ISSET(sfd, &readfds)){
-      fprintf(stdout, "Waiting ack\n");
       char data[HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE];
       ssize_t read_bytes = read(sfd, data, sizeof(data));
-      fprintf(stdout, "Ack receive, number of bytes received : %zd\n", read_bytes);
+      fprintf(stderr, "Ack receive, number of bytes received : %zd\n", read_bytes);
+
       pkt_t* ack_pkt = pkt_new();
       pkt_status_code ack_status_code = pkt_decode(data, sizeof(data), ack_pkt);
-      fprintf(stdout, "Status of ack = %d\n", ack_status_code);
       if(ack_status_code == PKT_OK){
-        fprintf(stdout, "decode data ok\n");
         if(pkt_get_type(ack_pkt) == PTYPE_ACK){
-          fprintf(stdout, "ACK type\n");
+          rtt = 2*pkt_get_timestamp(ack_pkt);
           slide_window(pkt_get_seqnum(ack_pkt));
           size_receiver_window = pkt_get_window(ack_pkt);
         }
         else if(pkt_get_type(ack_pkt) == PTYPE_NACK){
-          fprintf(stdout, "NACK TYPE\n");
           send_pkt(BUFFER[pkt_get_seqnum(ack_pkt)].pkt, pkt_get_seqnum(ack_pkt));
         }
         else{
-          fprintf(stdout, "decode data != ok\n");
+          fprintf(stderr, "decode data != ok\n");
         }
 
       }
@@ -193,7 +190,7 @@ int main(int argc, const char* argv[]){
  */
 int all_pkt_acked(){
   for(int i = 0; i<BUFFER_SIZE-1; i++){
-    if(BUFFER[i].state == SEND){
+    if(BUFFER[i].state == SEND || BUFFER[i].state == WAIT){
       return 0;
     }
   }
@@ -207,17 +204,16 @@ int all_pkt_acked(){
 int read_from_input(){
   //from stdin
   if(nbr_arg == 3){
-    fprintf(stdout, "Read data from stdin\n");
+    fprintf(stderr, "Read data from stdin\n");
     char buf[MAX_PAYLOAD_SIZE];
     int n = read(STDIN, buf, MAX_PAYLOAD_SIZE);
-    fprintf(stdout, "Read data = %s\n", buf);
     if(n == -1){
       perror("read");
       return 0;
     }
     else{
       if(is_stop(buf)){
-        fprintf(stdout, "C'EST STOP\n");
+        fprintf(stderr, "C'EST STOP\n");
         all_pkt_read = 1;
       }
 
@@ -229,18 +225,16 @@ int read_from_input(){
       pkt_set_length(pkt, n);
       pkt_set_payload(pkt, buf, n);
 
-      fprintf(stdout, "Length :%d\n", pkt_get_length(pkt));
-      fprintf(stdout, "payload = %s\n", pkt_get_payload(pkt));
 
       seqnum = (seqnum+1)%MAX_SEQ_NUMBER;
-      fprintf(stdout, "new seqnum = %d \n", seqnum);
+      fprintf(stderr, "new seqnum = %d \n", seqnum);
       add_to_buffer(pkt);
       return 1;
     }
   }
   //from file
   else{
-    fprintf(stdout, "Read data from file\n");
+    fprintf(stderr, "Read data from file\n");
     char buf[MAX_PAYLOAD_SIZE];
     int n = read(filefd, buf, MAX_PAYLOAD_SIZE);
     if(n == -1){
@@ -248,7 +242,6 @@ int read_from_input(){
       return 0;
     }
     else{
-      fprintf(stdout, "Number of bytes read in file : %d\n", n);
       if(n < MAX_PAYLOAD_SIZE){
         all_pkt_read = 1;
       }
@@ -260,10 +253,8 @@ int read_from_input(){
       pkt_set_length(pkt, n);
       pkt_set_payload(pkt, buf, n);
 
-      fprintf(stdout, "Length :%d\n", pkt_get_length(pkt));
-
       seqnum = (seqnum+1)%MAX_SEQ_NUMBER;
-      fprintf(stdout, "new seqnum = %d \n", seqnum);
+      fprintf(stderr, "new seqnum = %d \n", seqnum);
       add_to_buffer(pkt);
       return 1;
     }
@@ -275,7 +266,7 @@ int read_from_input(){
  * Send the last packet with empty payload
  */
 void send_last_pkt(){
-  fprintf(stdout, "Sending last packet\n");
+  fprintf(stderr, "Sending last packet\n");
   uint16_t length = 0;
   pkt_t* lastpkt = pkt_new();
   pkt_set_type(lastpkt, PTYPE_DATA);
@@ -283,7 +274,7 @@ void send_last_pkt(){
   pkt_set_window(lastpkt, window_size);
   pkt_set_seqnum(lastpkt, seqnum);
   pkt_set_length(lastpkt, length);
-  fprintf(stdout, "Length :%d\n", pkt_get_length(lastpkt));
+  fprintf(stderr, "Length :%d\n", pkt_get_length(lastpkt));
   pkt_set_payload(lastpkt, NULL, 0);
   struct timeval timev;
   if(gettimeofday(&timev, NULL) != 0){
@@ -302,7 +293,7 @@ void send_last_pkt(){
   if(bytes_sent < 0){
     perror("send");
   }
-  fprintf(stdout, "Bytes send : %d\n", bytes_sent);
+  fprintf(stderr, "Bytes send : %d\n", bytes_sent);
 
   pkt_del(lastpkt);
   pkt_del(test);
@@ -312,8 +303,7 @@ void send_last_pkt(){
  * Send a packet
  */
 void send_pkt(pkt_t* pkt, int position_in_buffer){
-  fprintf(stdout, "Sending a packet with seqnum = %d\n", pkt_get_seqnum(pkt));
-  fprintf(stdout, "And payload = %s\n", pkt_get_payload(pkt));
+  fprintf(stderr, "Sending a packet with seqnum = %d\n", pkt_get_seqnum(pkt));
   struct timeval timev;
   if(gettimeofday(&timev, NULL) != 0){
     perror("gettimeofday");
@@ -327,12 +317,10 @@ void send_pkt(pkt_t* pkt, int position_in_buffer){
   size_t size = HEADER_SIZE + CRC1_SIZE + MAX_PAYLOAD_SIZE + CRC2_SIZE;
   pkt_encode(pkt, data, &size);
 
-  fprintf(stdout, "Sending data\n");
   int bytes_sent = send(sfd, data, size, 0);
   if(bytes_sent < 0){
     perror("send2");
   }
-  fprintf(stdout, "Bytes send2 : %d\n", bytes_sent);
 
   BUFFER[position_in_buffer].state = SEND;
 }
@@ -342,15 +330,14 @@ void send_pkt(pkt_t* pkt, int position_in_buffer){
  */
 void slide_window(uint8_t ack_seqnum){
   int end_window = (begin_window+MAX_WINDOW_SIZE)%(BUFFER_SIZE-1);
-  fprintf(stdout, "ack_seqnum = %d, begin_window = %d, end_window = %d\n", ack_seqnum, begin_window, end_window);
+  fprintf(stderr, "ack_seqnum = %d, begin_window = %d, end_window = %d\n", ack_seqnum, begin_window, end_window);
   if(is_in_window(ack_seqnum)){
-      fprintf(stdout, "ack_seqnum is in window\n");
     while(begin_window != (ack_seqnum+1)%(BUFFER_SIZE-1)){
       BUFFER[begin_window].state = ACKED;
       pkt_del(BUFFER[begin_window].pkt);
       BUFFER[begin_window].timeval = 0;
       begin_window = (begin_window+1)%(BUFFER_SIZE-1);
-      fprintf(stdout, "begin_window = %d\n", begin_window);
+      window_size++;
     }
   }
 
@@ -370,9 +357,9 @@ void check_time(){
     }
     uint32_t timeval = timeval_to_millisec(&timev);
 
-    if(timeval - BUFFER[i].timeval > max_timeval && BUFFER[i].state == SEND){
-      fprintf(stdout, "Resending data of packet in BUFFER[%d]\n", i);
-      fprintf(stdout, "Difference of time = %d\n", (int)(timeval - BUFFER[i].timeval));
+    if(timeval - BUFFER[i].timeval > rtt && BUFFER[i].state == SEND){
+      fprintf(stderr, "Resending data of packet in BUFFER[%d]\n", i);
+      fprintf(stderr, "Difference of time = %d\n", (int)(timeval - BUFFER[i].timeval));
       send_pkt(BUFFER[i].pkt, i);
     }
   }
@@ -382,11 +369,11 @@ void check_time(){
  * Add packet to the buffer
  */
 void add_to_buffer(pkt_t* pkt){
-  fprintf(stdout, "Adding pkt to the buffer at position : %d\n", ptr_add_buffer);
+  fprintf(stderr, "Adding pkt to the buffer at position : %d\n", ptr_add_buffer);
   BUFFER[ptr_add_buffer].pkt = pkt;
   BUFFER[ptr_add_buffer].state = WAIT;
   ptr_add_buffer = (ptr_add_buffer+1)%(BUFFER_SIZE-1);
-  fprintf(stdout, "ptr_add_buffer after = %d\n", ptr_add_buffer);
+  fprintf(stderr, "ptr_add_buffer after = %d\n", ptr_add_buffer);
   window_size--;
 }
 
