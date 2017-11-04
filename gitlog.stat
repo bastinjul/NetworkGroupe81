@@ -1,3 +1,116 @@
+commit 4bc5e9c1c0e563d86c33c45eda2ee1c90e1c20b1
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sat Nov 4 17:07:06 2017 +0100
+
+    ajout du rapport
+
+ rapport.pdf | Bin 127391 -> 142316 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+commit d7b3114bcfc5f6070bf1de0b3ad936669d8634f9
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sat Nov 4 17:01:56 2017 +0100
+
+    ajout d'un test
+
+ src/receiver.c          | 5 +++--
+ tests/file_no_arg.dat   | 6 ++++++
+ tests/output_no_arg.dat | 6 ++++++
+ tests/test.sh           | 8 ++++++++
+ 4 files changed, 23 insertions(+), 2 deletions(-)
+
+commit e6c821b19d038c12dcc104d859a3c657697f1030
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sat Nov 4 16:46:59 2017 +0100
+
+    arret avec ctrl+d
+
+ src/receiver.c | 2 +-
+ src/sender.c   | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+commit 4e232441fb65cb043c66c1067664d4700313b50e
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Sat Nov 4 16:12:04 2017 +0100
+
+    premiere version finale
+
+ LINGI1341-linksim-master/.gitignore    |   3 -
+ LINGI1341-linksim-master/LICENSE       |  22 --
+ LINGI1341-linksim-master/Makefile      |  35 --
+ LINGI1341-linksim-master/README.md     |  26 --
+ LINGI1341-linksim-master/link_sim.c    | 588 ---------------------------------
+ LINGI1341-linksim-master/min_queue.c   | 170 ----------
+ LINGI1341-linksim-master/min_queue.h   |  66 ----
+ Makefile                               |   9 +-
+ dissector-LINGI1341.lua                |  43 ---
+ ip_first                               |   1 -
+ receiver                               | Bin 24312 -> 0 bytes
+ receiver.log                           |   0
+ sender                                 | Bin 24896 -> 0 bytes
+ sender.log                             |   0
+ src/create_socket.o                    | Bin 2288 -> 0 bytes
+ src/jacobson.c                         |  35 --
+ src/jacobson.h                         |  10 -
+ src/jacobson.o                         | Bin 3168 -> 0 bytes
+ src/packet_implem.c                    |   1 -
+ src/packet_implem.o                    | Bin 7000 -> 0 bytes
+ src/real_address.o                     | Bin 1968 -> 0 bytes
+ src/receiver.c                         |  81 ++---
+ src/receiver.o                         | Bin 16032 -> 0 bytes
+ src/sender.c                           |  67 ++--
+ src/sender.o                           | Bin 18808 -> 0 bytes
+ src/util.o                             | Bin 1304 -> 0 bytes
+ src/wait_for_client.c                  |   1 -
+ src/wait_for_client.o                  | Bin 2376 -> 0 bytes
+ tests/{large.dat => file_large.dat}    |  57 ++--
+ tests/{merdium.dat => file_medium.dat} |   9 +-
+ tests/{small.dat => file_small.dat}    |   0
+ tests/output_large.dat                 |  57 ++--
+ tests/output_medium.dat                |  14 +-
+ tests/test.sh                          |  81 ++---
+ 34 files changed, 187 insertions(+), 1189 deletions(-)
+
+commit 2d2e1ee98378f6e7e3e4d127542bc4378773dad5
+Author: julien1bastin <julienbastin96@hotmail.com>
+Date:   Thu Nov 2 12:47:04 2017 +0100
+
+    résolution du bug
+
+ LINGI1341-linksim-master/.gitignore  |   3 +
+ LINGI1341-linksim-master/LICENSE     |  22 ++
+ LINGI1341-linksim-master/Makefile    |  35 +++
+ LINGI1341-linksim-master/README.md   |  26 ++
+ LINGI1341-linksim-master/link_sim.c  | 588 +++++++++++++++++++++++++++++++++++
+ LINGI1341-linksim-master/min_queue.c | 170 ++++++++++
+ LINGI1341-linksim-master/min_queue.h |  66 ++++
+ Makefile                             |   2 +-
+ dissector-LINGI1341.lua              |  43 +++
+ gitlog.stat                          | 195 ++++++++++++
+ ip_first                             |   1 +
+ receiver                             | Bin 0 -> 24312 bytes
+ receiver.log                         |   0
+ sender                               | Bin 0 -> 24896 bytes
+ sender.log                           |   0
+ src/create_socket.o                  | Bin 0 -> 2288 bytes
+ src/jacobson.o                       | Bin 0 -> 3168 bytes
+ src/packet_implem.c                  |  14 +-
+ src/packet_implem.o                  | Bin 0 -> 7000 bytes
+ src/real_address.o                   | Bin 0 -> 1968 bytes
+ src/receiver.c                       |   8 +-
+ src/receiver.o                       | Bin 0 -> 16032 bytes
+ src/sender.c                         |  27 +-
+ src/sender.o                         | Bin 0 -> 18808 bytes
+ src/util.o                           | Bin 0 -> 1304 bytes
+ src/wait_for_client.o                | Bin 0 -> 2376 bytes
+ tests/large.dat                      | 101 ++++++
+ tests/merdium.dat                    |  11 +
+ tests/output_large.dat               | 173 +++++++++++
+ tests/output_medium.dat              |   6 +
+ tests/output_small.dat               |   6 +
+ tests/small.dat                      |   2 +-
+ 32 files changed, 1479 insertions(+), 20 deletions(-)
+
 commit 14708c8280e2c7b24117aeb1a891d0d222ebed86
 Author: julien1bastin <julienbastin96@hotmail.com>
 Date:   Mon Oct 23 04:33:13 2017 +0200
